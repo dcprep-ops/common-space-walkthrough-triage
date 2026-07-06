@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walkthrough Report Mockups</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#f1f5f9;padding:24px;color:#1e293b}
+.page-title{font-size:20px;font-weight:700;color:#1a3a5c;margin-bottom:4px}
+.page-sub{font-size:13px;color:#64748b;margin-bottom:32px}
+.opt-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#94a3b8;margin:28px 0 10px}
+.opt-label:first-of-type{margin-top:0}
+
+/* Phone frame */
+.phone-frame{display:inline-block;background:#1a1a1a;border-radius:36px;padding:10px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin-bottom:8px}
+.phone-frame::before{content:'';display:block;width:60px;height:5px;background:#2a2a2a;border-radius:3px;margin:0 auto 8px}
+.phone-screen{width:290px;border-radius:26px;overflow:hidden;background:#f5f7fa}
+.p-success{display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 18px 24px;background:#f5f7fa}
+.p-ring{width:64px;height:64px;border-radius:50%;background:#0d9488;display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;margin-bottom:18px}
+.p-title{font-size:22px;font-weight:700;color:#1a3a5c;margin-bottom:8px}
+.p-sub{font-size:13px;color:#64748b;line-height:1.6;margin-bottom:18px;max-width:230px}
+.p-sub-note{font-size:12px;color:#0d9488;line-height:1.6;margin-bottom:18px;max-width:230px;font-style:italic}
+.p-card{background:#fff;border-radius:10px;border:0.5px solid #e2e8f0;padding:12px;width:100%;text-align:left;margin-bottom:16px;font-size:11px;color:#64748b}
+.p-card-title{font-weight:600;color:#1a3a5c;margin-bottom:6px;font-size:12px}
+.p-btn{background:#1a3a5c;color:#fff;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;width:100%;text-align:center;margin-top:4px}
+
+/* Report cards */
+.report-card{background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:18px;margin-bottom:12px;max-width:480px}
+.rc-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.rc-title{font-size:12px;font-weight:500;color:#64748b}
+.rc-date{font-size:11px;color:#94a3b8}
+.rc-school{font-size:20px;font-weight:700;color:#1a3a5c;margin-bottom:2px}
+.rc-meta{font-size:11px;color:#64748b;margin-bottom:14px}
+.rc-divider{height:0.5px;background:#e2e8f0;margin:12px 0}
+.rc-section{font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#94a3b8;margin-bottom:8px}
+.rc-space-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid #f1f5f9;font-size:12px}
+.rc-space-row:last-child{border-bottom:none}
+.badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px}
+.badge-ok{background:#f0fdf4;color:#166534}
+.badge-flag{background:#fef2f2;color:#991b1b}
+.badge-na{background:#f8fafc;color:#94a3b8;border:0.5px solid #e2e8f0}
+.flag-item{font-size:11px;color:#991b1b;padding:4px 0;margin:4px 0;line-height:1.5;display:flex;align-items:baseline;gap:6px}
+.flag-bullet{font-size:10px;color:#dc2626;flex-shrink:0}
+.notes-box{font-size:11px;color:#64748b;line-height:1.5;background:#f8fafc;border-radius:6px;padding:8px 10px;margin-top:4px}
+.observer-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.obs-avatar{width:30px;height:30px;border-radius:50%;background:#e1f5ee;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#0f6e56;flex-shrink:0}
+.obs-name{font-size:12px;font-weight:600;color:#1a3a5c}
+.obs-sub{font-size:10px;color:#94a3b8}
+.score-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.score-label{font-size:12px;color:#1e293b;width:130px;flex-shrink:0}
+.score-track{flex:1;height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden}
+.score-fill{height:100%;border-radius:4px}
+.score-pct{font-size:11px;color:#64748b;min-width:32px;text-align:right}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.summary-stat{background:#f8fafc;border-radius:8px;padding:10px 12px}
+.ss-val{font-size:24px;font-weight:700}
+.ss-label{font-size:10px;color:#64748b;margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="page-title">Common Space Walkthrough</div>
+<div class="page-sub">End screen update + three report format options</div>
+
+<!-- ── CURRENT vs UPDATED END SCREEN ── -->
+<div class="opt-label">Current end screen → proposed update</div>
+<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">
+
+  <div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;text-align:center">Current</div>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="p-success">
+          <div class="p-ring">✓</div>
+          <div class="p-title">Logged</div>
+          <div class="p-sub">Your record has been saved.</div>
+          <div class="p-card">
+            <div class="p-card-title">AEC · Common Space Walkthrough</div>
+            <div>Role: OSL</div>
+            <div>Spaces: 11 checked · 2 flagged</div>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-bottom:12px">Want a copy of what you submitted?</div>
+          <div style="display:flex;gap:8px;width:100%;margin-bottom:12px">
+            <input style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;background:#fff" placeholder="Your email">
+            <button style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600">Send</button>
+          </div>
+          <div class="p-btn">← Return to Ops App</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;text-align:center">Proposed</div>
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="p-success">
+          <div class="p-ring">✓</div>
+          <div class="p-title">Submitted</div>
+          <div class="p-sub">Your observations have been saved.</div>
+          <div class="p-sub-note">We'll incorporate this into the walkthrough report along with the other observations from today.</div>
+          <div class="p-card">
+            <div class="p-card-title">AEC · Common Space Walkthrough</div>
+            <div>Role: OSL</div>
+            <div>Spaces: 11 checked · 2 flagged</div>
+          </div>
+          <div style="font-size:11px;color:#64748b;margin-bottom:12px">Want a copy of what you submitted?</div>
+          <div style="display:flex;gap:8px;width:100%;margin-bottom:12px">
+            <input style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;background:#fff" placeholder="Your email">
+            <button style="background:#0d9488;color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600">Send</button>
+          </div>
+          <div class="p-btn">← Return to Ops App</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── REPORT A ── -->
+<div class="opt-label">Report A — Space-by-space (updated)</div>
+<div class="report-card">
+  <div class="rc-head"><div class="rc-title">Common Space Walkthrough</div><div class="rc-date">July 4, 2026</div></div>
+  <div class="rc-school">Anacostia Elementary</div>
+  <div class="rc-meta">Observed by: OSL, SDO, COO &nbsp;·&nbsp; 3 observers</div>
+  <div class="summary-grid">
+    <div class="summary-stat"><div class="ss-val" style="color:#0d9488">9</div><div class="ss-label">Spaces clear</div></div>
+    <div class="summary-stat"><div class="ss-val" style="color:#dc2626">2</div><div class="ss-label">Spaces with flags</div></div>
+  </div>
+  <div class="rc-section">All spaces</div>
+  <div class="rc-space-row"><span>Main lobby</span><span class="badge badge-ok">Clear</span></div>
+  <div class="rc-space-row"><span>Cafeteria</span><span class="badge badge-flag">2 flags</span></div>
+  <div class="rc-space-row"><span>Main office</span><span class="badge badge-ok">Clear</span></div>
+  <div class="rc-space-row"><span>Gymnasium</span><span class="badge badge-flag">1 flag</span></div>
+  <div class="rc-space-row"><span>Library / Media center</span><span class="badge badge-ok">Clear</span></div>
+  <div class="rc-space-row"><span>Hallways (1st floor)</span><span class="badge badge-na">Not assessed</span></div>
+  <div class="rc-divider"></div>
+  <div class="rc-section">Flagged items &amp; notes</div>
+
+  <div style="font-size:12px;font-weight:600;color:#1a3a5c;margin:6px 0 5px">Cafeteria</div>
+  <div class="flag-item"><span class="flag-bullet">⚑</span>Tables not fully wiped — residue visible on 3 tables</div>
+  <div class="flag-item"><span class="flag-bullet">⚑</span>Floor near serving line needs mopping</div>
+  <div class="notes-box" style="margin-top:6px">Suggest custodial follow-up before Monday. Recurring issue from last walkthrough.</div>
+
+  <div style="font-size:12px;font-weight:600;color:#1a3a5c;margin:14px 0 5px">Gymnasium</div>
+  <div class="flag-item"><span class="flag-bullet">⚑</span>Emergency exit signage partially obstructed by storage cart</div>
+  <div class="notes-box" style="margin-top:6px">Cart belongs to custodial team — needs permanent relocation.</div>
+</div>
+
+<!-- ── REPORT B ── -->
+<div class="opt-label">Report B — By observer (who saw what)</div>
+<div class="report-card">
+  <div class="rc-head"><div class="rc-title">Common Space Walkthrough</div><div class="rc-date">July 4, 2026</div></div>
+  <div class="rc-school">Anacostia Elementary</div>
+  <div class="rc-meta">3 observations submitted</div>
+  <div class="rc-divider"></div>
+
+  <div class="observer-row">
+    <div class="obs-avatar">OS</div>
+    <div><div class="obs-name">OSL</div><div class="obs-sub">11 spaces · 2 flagged</div></div>
+  </div>
+  <div class="rc-space-row"><span>Cafeteria</span><span class="badge badge-flag">2 flags</span></div>
+  <div class="rc-space-row"><span>Gymnasium</span><span class="badge badge-flag">1 flag</span></div>
+  <div class="notes-box">Tables not wiped, floor near serving line. Exit sign obstructed in gym.</div>
+
+  <div class="rc-divider"></div>
+  <div class="observer-row">
+    <div class="obs-avatar">SD</div>
+    <div><div class="obs-name">SDO</div><div class="obs-sub">11 spaces · 0 flagged</div></div>
+  </div>
+  <div style="font-size:11px;color:#94a3b8;padding:4px 0">All spaces clear — no flags noted.</div>
+
+  <div class="rc-divider"></div>
+  <div class="observer-row">
+    <div class="obs-avatar">CO</div>
+    <div><div class="obs-name">COO</div><div class="obs-sub">11 spaces · 1 flagged</div></div>
+  </div>
+  <div class="rc-space-row"><span>Cafeteria</span><span class="badge badge-flag">1 flag</span></div>
+  <div class="notes-box">Cafeteria floor — same issue as OSL. Suggest custodial follow-up before Monday.</div>
+</div>
+
+<!-- ── REPORT C ── -->
+<div class="opt-label">Report C — Scored summary (for sharing up)</div>
+<div class="report-card">
+  <div class="rc-head"><div class="rc-title">Common Space Walkthrough</div><div class="rc-date">July 4, 2026</div></div>
+  <div class="rc-school">Anacostia Elementary</div>
+  <div class="rc-meta">Observed by: OSL, SDO, COO &nbsp;·&nbsp; 3 observers</div>
+  <div class="summary-grid">
+    <div class="summary-stat"><div class="ss-val" style="color:#0d9488">82%</div><div class="ss-label">Items clear (avg)</div></div>
+    <div class="summary-stat"><div class="ss-val" style="color:#dc2626">3</div><div class="ss-label">Items flagged</div></div>
+  </div>
+  <div class="rc-section">Score by space</div>
+  <div class="score-row"><div class="score-label">Main lobby</div><div class="score-track"><div class="score-fill" style="width:100%;background:#0d9488"></div></div><div class="score-pct">100%</div></div>
+  <div class="score-row"><div class="score-label">Cafeteria</div><div class="score-track"><div class="score-fill" style="width:50%;background:#f59e0b"></div></div><div class="score-pct">50%</div></div>
+  <div class="score-row"><div class="score-label">Main office</div><div class="score-track"><div class="score-fill" style="width:100%;background:#0d9488"></div></div><div class="score-pct">100%</div></div>
+  <div class="score-row"><div class="score-label">Gymnasium</div><div class="score-track"><div class="score-fill" style="width:80%;background:#f59e0b"></div></div><div class="score-pct">80%</div></div>
+  <div class="score-row"><div class="score-label">Library</div><div class="score-track"><div class="score-fill" style="width:100%;background:#0d9488"></div></div><div class="score-pct">100%</div></div>
+  <div class="rc-divider"></div>
+  <div class="rc-section">Items needing attention</div>
+  <div class="flag-item">Cafeteria — tables not wiped, floor near serving line</div>
+  <div class="flag-item">Gymnasium — emergency exit signage obstructed</div>
+  <div class="rc-divider"></div>
+  <div class="rc-section">Observer agreement</div>
+  <div style="font-size:11px;color:#64748b;line-height:1.6">Cafeteria flags confirmed by 2 of 3 observers. All other spaces consistent across team.</div>
+</div>
+
+</body>
+</html>
