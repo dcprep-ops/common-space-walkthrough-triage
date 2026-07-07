@@ -462,6 +462,8 @@ async function analyzeData() {
         max_tokens: 1000,
         system: `You parse DC Prep common space walkthrough data and return ONLY valid JSON, no preamble, no markdown fences.
 
+The data has columns formatted as "Space — Item" (e.g. "Lobby — Furniture is inviting and in good condition").
+
 Return this exact shape:
 {
   "school": "full school name or campus code",
@@ -472,14 +474,14 @@ Return this exact shape:
     {
       "name": "space name",
       "flagCount": number,
-      "flags": ["flag text 1", "flag text 2"],
+      "flags": ["item name only (no space prefix)", "item name 2"],
       "notes": "combined notes from all observers for this space, or empty string",
       "confirmedBy": number
     }
   ]
 }
 
-Only include spaces that were flagged by at least one observer. For each flag, combine duplicate observations across observers into one clear sentence. confirmedBy = number of observers who flagged this space.`,
+Only include spaces that were flagged by at least one observer. For each flag, use only the item name (strip the "Space — " prefix). Combine duplicate observations across observers into one clear sentence. confirmedBy = number of observers who flagged this space.`,
         messages: [{ role: 'user', content: `Parse this walkthrough data:\n\n${text}` }]
       })
     });
