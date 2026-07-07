@@ -449,7 +449,6 @@ async function analyzeData() {
   showScreen('screen-loading');
   document.getElementById('loading-msg').textContent = 'Reading your observations…';
 
-  // Parse CSV locally first
   const rows = parseCSV(text);
   if (!rows || rows.length === 0) {
     alert('Could not parse data. Make sure you have a header row.');
@@ -457,84 +456,93 @@ async function analyzeData() {
     return;
   }
   STATE.rawRows = rows;
-
-  // Call Claude to extract structured data
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: `You parse DC Prep common space walkthrough data and return ONLY valid JSON, no preamble, no markdown fences.
-
-The data has columns formatted as "Space — Item" (e.g. "Lobby — Furniture is inviting and in good condition").
-
-Return this exact shape:
-{
-  "school": "full school name or campus code",
-  "date": "Month D, YYYY",
-  "observers": ["Role1","Role2"],
-  "totalSpaces": number,
-  "spaces": [
-    {
-      "name": "space name",
-      "flagCount": number,
-      "flags": ["item name only (no space prefix)", "item name 2"],
-      "notes": "combined notes from all observers for this space, or empty string",
-      "confirmedBy": number
-    }
-  ]
+  buildFromColumns(rows);
+  buildTriageScreen();
+  showScreen('screen-triage');
 }
 
-Only include spaces that were flagged by at least one observer. For each flag, use only the item name (strip the "Space — " prefix). Combine duplicate observations across observers into one clear sentence. confirmedBy = number of observers who flagged this space.`,
-        messages: [{ role: 'user', content: `Parse this walkthrough data:\n\n${text}` }]
-      })
-    });
-    const data = await response.json();
-    const raw = data.content[0].text.replace(/```json|```/g,'').trim();
-    STATE.parsed = JSON.parse(raw);
-    buildTriageScreen();
-    showScreen('screen-triage');
-  } catch(err) {
-    console.error(err);
-    // Fallback: build from raw CSV
-    buildFromCSV(rows);
-    buildTriageScreen();
-    showScreen('screen-triage');
-  }
-}
-
-function buildFromCSV(rows) {
-  const campus = rows[0]['Campus'] || 'Campus';
-  const observers = [...new Set(rows.map(r => r['Role']).filter(Boolean))];
+// Parse flags directly from item columns — reliable, no AI needed
+function buildFromColumns(rows) {
+  const campus = rows[0]['Campus'] || rows[0]['campus'] || 'Campus';
+  const observers = [...new Set(rows.map(r => r['Role'] || r['role']).filter(Boolean))];
   const date = new Date().toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'});
 
-  // Aggregate flags by space from Notes field
-  const spaceMap = {};
-  rows.forEach(row => {
-    const notes = row['Notes'] || '';
-    if (!notes) return;
-    notes.split(';').forEach(chunk => {
-      const m = chunk.match(/^([^:]+):\s*(.+)/);
-      if (!m) return;
-      const space = m[1].trim();
-      const flag = m[2].trim();
-      if (!spaceMap[space]) spaceMap[space] = { flags: [], notes: '', confirmedBy: 0 };
-      if (!spaceMap[space].flags.includes(flag)) spaceMap[space].flags.push(flag);
-      spaceMap[space].confirmedBy++;
-    });
+  // Get all column keys from first row
+  const allKeys = Object.keys(rows[0]);
+
+  // Find item columns: either "Space — Item" (new format) or plain item names (old format)
+  const itemKeys = allKeys.filter(k => {
+    const lower = k.toLowerCase();
+    return k !== 'Timestamp' && k !== 'Campus' && k !== 'Role' &&
+           k !== 'Items Checked' && k !== 'Items Flagged' && k !== 'Notes' &&
+           !lower.includes('timestamp') && !lower.includes('campus') &&
+           !lower.includes('role') && !lower.includes('items ');
   });
+
+  // Group flags by space
+  // spaceMap: { spaceName: { flags: Set of item names, observers: Set of roles, notes: [] } }
+  const spaceMap = {};
+
+  rows.forEach(row => {
+    const role = row['Role'] || row['role'] || 'Unknown';
+    itemKeys.forEach(key => {
+      if ((row[key] || '').toLowerCase() !== 'flagged') return;
+      // Extract space name from "Space — Item" or use "General" for old format
+      let spaceName, itemName;
+      if (key.includes(' — ')) {
+        const parts = key.split(' — ');
+        spaceName = parts[0].trim();
+        itemName  = parts[1].trim();
+      } else {
+        spaceName = 'General';
+        itemName  = key;
+      }
+      if (!spaceMap[spaceName]) spaceMap[spaceName] = { flagItems: {}, observerRoles: new Set(), notes: [] };
+      if (!spaceMap[spaceName].flagItems[itemName]) spaceMap[spaceName].flagItems[itemName] = new Set();
+      spaceMap[spaceName].flagItems[itemName].add(role);
+      spaceMap[spaceName].observerRoles.add(role);
+    });
+
+    // Collect notes per space
+    const notes = row['Notes'] || row['notes'] || '';
+    if (notes) {
+      notes.split('|').forEach(chunk => {
+        const m = chunk.match(/^([^:]+):\s*(.+)/);
+        if (m) {
+          const sn = m[1].trim();
+          if (!spaceMap[sn]) spaceMap[sn] = { flagItems: {}, observerRoles: new Set(), notes: [] };
+          spaceMap[sn].notes.push(m[2].trim());
+        }
+      });
+    }
+  });
+
+  // Also pull notes for spaces with flags
+  const spaces = Object.entries(spaceMap).map(([name, d]) => {
+    const flags = Object.entries(d.flagItems).map(([item, roles]) => ({
+      item,
+      confirmedBy: roles.size,
+      roles: [...roles]
+    }));
+    return {
+      name,
+      flagCount: flags.length,
+      flags: flags.map(f => f.item),
+      flagDetails: flags,
+      notes: d.notes.join(' '),
+      confirmedBy: d.observerRoles.size
+    };
+  }).filter(s => s.flagCount > 0);
+
+  // Sort spaces by flag count desc
+  spaces.sort((a, b) => b.flagCount - a.flagCount);
 
   STATE.parsed = {
     school: campus,
     date,
     observers,
-    totalSpaces: 11,
-    spaces: Object.entries(spaceMap).map(([name, d]) => ({
-      name, flagCount: d.flags.length, flags: d.flags,
-      notes: d.notes, confirmedBy: d.confirmedBy
-    }))
+    totalSpaces: 10,
+    spaces
   };
 }
 
@@ -573,19 +581,29 @@ function buildTriageScreen() {
 
     if (space.confirmedBy > 1) {
       const conf = el('div','observer-note');
-      conf.textContent = `Flagged by ${space.confirmedBy} observers`;
+      conf.textContent = `Flagged by ${space.confirmedBy} observer${space.confirmedBy>1?'s':''}`;
       flagList.appendChild(conf);
     }
 
     space.flags.forEach((flag, fi) => {
+      // per-item confirmed by count
+      const detail = space.flagDetails && space.flagDetails.find(d=>d.item===flag);
+      const itemConf = detail ? detail.confirmedBy : 1;
       const key = `${si}|${fi}`;
       STATE.triage[key] = { status: null, desiredState: '' };
 
       const row = el('div','flag-row');
 
+      const owner = getOwner(space.name, flag);
+      const oc = OWNER_COLORS[owner] || OWNER_COLORS['OSL'];
       const txt = el('div','flag-text');
-      txt.innerHTML = `<span class="flag-icon">⚑</span><span>${flag}</span>`;
+      txt.innerHTML = `<span class="flag-icon">⚑</span><span>${flag}</span>`
+        + (itemConf > 1 ? `<span style="font-size:10px;color:#92400e;background:#fef3c7;border-radius:8px;padding:1px 7px;margin-left:6px;flex-shrink:0">${itemConf} observers</span>` : '');
       row.appendChild(txt);
+      const ownerBadge = el('div','');
+      ownerBadge.style.cssText = 'margin-bottom:6px';
+      ownerBadge.innerHTML = `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:${oc.bg};color:${oc.color};border:1px solid ${oc.border}">Owner: ${owner}</span>`;
+      row.appendChild(ownerBadge);
 
       const controls = el('div','triage-controls');
       [
@@ -658,7 +676,7 @@ async function generateReport() {
       const key = `${si}|${fi}`;
       const t = STATE.triage[key];
       if (!t || t.status === 'skip' || t.status === 'resolved') return;
-      if (t.status === 'action') actionItems.push({ space: space.name, flag, desiredState: t.desiredState, notes: space.notes });
+      if (t.status === 'action') actionItems.push({ space: space.name, flag, desiredState: t.desiredState, notes: space.notes, owner: getOwner(space.name, flag) });
       if (t.status === 'monitor') monitorItems.push({ space: space.name, flag });
     });
   });
@@ -672,21 +690,30 @@ async function generateReport() {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
-        system: `You write a walkthrough action summary and two draft emails for a DC Prep school operations leader. Return ONLY valid JSON, no markdown fences.
+        system: `You write a walkthrough action summary and draft emails for a DC Prep school operations leader. Return ONLY valid JSON, no markdown fences.
 
 Return this shape:
 {
   "actionTable": [
-    { "space": "...", "item": "...", "desiredState": "...", "owner": "Custodial|Facilities|OSL|Principal", "priority": "Before Monday|This week|Ongoing" }
+    { "space": "...", "item": "...", "desiredState": "...", "owner": "use the owner provided", "priority": "Before Monday|This week|Ongoing" }
   ],
   "monitorList": ["item 1", "item 2"],
-  "emailCustodial": { "subject": "...", "body": "..." },
+  "emailsByOwner": {
+    "Custodial": { "subject": "...", "body": "..." },
+    "Office Manager": { "subject": "...", "body": "..." },
+    "Facilities": { "subject": "...", "body": "..." },
+    "Food Service Coordinator": { "subject": "...", "body": "..." },
+    "Principal": { "subject": "...", "body": "..." },
+    "OSL": { "subject": "...", "body": "..." }
+  },
   "emailLeadership": { "subject": "...", "body": "..." }
 }
 
-For owner: infer from the item — cleaning/janitorial=Custodial, physical plant/equipment=Facilities, process/behavior=OSL or Principal.
+Owners are pre-determined and provided in the data — do not override them.
 For priority: safety items = Before Monday, cleanliness = Before Monday, minor process = This week.
-Write emails in plain professional tone as if from the OSL. emailCustodial goes to the custodial team. emailLeadership is a brief summary to the principal/leadership team.`,
+Only include emailsByOwner entries for owners who have action items.
+Write emails in plain professional tone as if from the OSL.
+emailLeadership is a brief summary to the principal/leadership team.`,
         messages: [{ role: 'user', content: triageSummary }]
       })
     });
@@ -776,28 +803,163 @@ function renderReport(p, ai, actionItems, monitorItems) {
     emailsLabel.textContent = 'Draft emails';
     container.appendChild(emailsLabel);
 
-    [
-      { key: 'emailCustodial', to: 'Custodial team' },
-      { key: 'emailLeadership', to: 'Principal / leadership' }
-    ].forEach(({ key, to }) => {
-      const email = ai[key];
-      if (!email) return;
+    // Per-owner emails
+    const ownerLabels = {
+      'Custodial': 'Custodial team',
+      'Office Manager': 'Office Manager',
+      'Facilities': 'Facilities team',
+      'Food Service Coordinator': 'Food Service Coordinator',
+      'Principal': 'Principal',
+      'OSL': 'OSL',
+    };
+    if (ai.emailsByOwner) {
+      Object.entries(ai.emailsByOwner).forEach(([owner, email]) => {
+        if (!email || !email.subject) return;
+        const oc = OWNER_COLORS[owner] || {};
+        const card = el('div','email-card');
+        card.innerHTML = `
+          <div class="email-to" style="margin-bottom:4px">
+            <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;background:${oc.bg||'#f8fafc'};color:${oc.color||'#475569'};border:1px solid ${oc.border||'#e2e8f0'}">${owner}</span>
+          </div>
+          <div class="email-subj">${email.subject}</div>
+          <div class="email-body">${email.body}</div>`;
+        const copyBtn = el('button','copy-btn','Copy email');
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText('Subject: ' + email.subject + '\n\n' + email.body);
+          copyBtn.textContent = '✓ Copied';
+          setTimeout(() => copyBtn.textContent = 'Copy email', 2000);
+        };
+        card.appendChild(copyBtn);
+        container.appendChild(card);
+      });
+    }
+    // Leadership summary
+    if (ai.emailLeadership) {
       const card = el('div','email-card');
       card.innerHTML = `
-        <div class="email-to">To: ${to}</div>
-        <div class="email-subj">${email.subject}</div>
-        <div class="email-body">${email.body}</div>`;
+        <div class="email-to">To: Principal / leadership</div>
+        <div class="email-subj">${ai.emailLeadership.subject}</div>
+        <div class="email-body">${ai.emailLeadership.body}</div>`;
       const copyBtn = el('button','copy-btn','Copy email');
       copyBtn.onclick = () => {
-        navigator.clipboard.writeText(`Subject: ${email.subject}\n\n${email.body}`);
+        navigator.clipboard.writeText('Subject: ' + ai.emailLeadership.subject + '\n\n' + ai.emailLeadership.body);
         copyBtn.textContent = '✓ Copied';
         setTimeout(() => copyBtn.textContent = 'Copy email', 2000);
       };
       card.appendChild(copyBtn);
       container.appendChild(card);
-    });
+    }
   }
 }
+// ── OWNERSHIP MAP ──────────────────────────────────────────────────────────
+const ITEM_OWNERS = {
+  // LOBBY
+  "Lobby — Furniture is inviting and in good condition": "Office Manager",
+  "Lobby — Lost and Found is clearly identifiable and organized": "Office Manager",
+  "Lobby — Package storage is functional and away from visitor sight": "Office Manager",
+  "Lobby — Front desk and security desk supplies are stocked": "Office Manager",
+  "Lobby — Bulletin boards have neat backing paper, updated monthly": "Office Manager",
+  "Lobby — Bilingual bulletin board with school leader \"All About Me\" and headshot": "Office Manager",
+  "Lobby — Bilingual family resources up to date and neat": "Office Manager",
+  "Lobby — Professional student and staff photos hung neatly": "Office Manager",
+  "Lobby — Bilingual signage and values hung neatly": "Office Manager",
+  "Lobby — School awards displayed on floating shelf": "Office Manager",
+  "Lobby — Security desk with clear sign-in process signage": "OSL",
+  // HALLWAYS
+  "Hallways — Hallways are clean, warm, and welcoming": "Custodial",
+  "Hallways — Signage and bulletin boards are neat and match branding": "OSL",
+  "Hallways — Bulletin boards feature student work": "OSL",
+  "Hallways — Hallways are clear of furniture, trash, and other items": "Custodial",
+  "Hallways — Values posters neatly hung": "OSL",
+  "Hallways — Informational posters and flyers neatly hung": "OSL",
+  "Hallways — \"Meet the Teacher\" sign holder intact": "OSL",
+  "Hallways — Photo canvases on each blank wall, hung neatly": "OSL",
+  "Hallways — Walls are clean without marks": "Custodial",
+  // CONFERENCE ROOMS
+  "Conference rooms — Space is neat, clean, and free of clutter": "Custodial",
+  "Conference rooms — Office supplies are stocked": "Office Manager",
+  "Conference rooms — Furniture is clean, matching, and functional": "Facilities",
+  "Conference rooms — Dry erase board is intact": "Facilities",
+  "Conference rooms — Google Meet box and remote control in holder": "Office Manager",
+  "Conference rooms — Mounted television and remote control in holder": "Office Manager",
+  // LEADER OFFICES
+  "Leader offices — Office is clean, organized, and fully functional": "Principal",
+  "Leader offices — Conference table and chairs present where applicable": "Principal",
+  "Leader offices — Area rug present where applicable": "Principal",
+  "Leader offices — Desk and office chairs functional": "Principal",
+  "Leader offices — Bookshelf present and organized": "Principal",
+  // COPY / MAIL ROOM
+  "Copy / mail room — Room is clean, organized, and fully functional": "Office Manager",
+  "Copy / mail room — Office supplies are stocked": "Office Manager",
+  "Copy / mail room — Paper and paper storage system is functional": "Office Manager",
+  "Copy / mail room — Ink / toner and storage system is functional": "Office Manager",
+  "Copy / mail room — Values posters neatly hung": "Office Manager",
+  "Copy / mail room — Copier troubleshooting directions hung at eye level": "Office Manager",
+  // STAFF LOUNGE
+  "Staff lounge / workroom — Space is clean, organized, and free of clutter": "Custodial",
+  "Staff lounge / workroom — Appliances are cleaned regularly": "Custodial",
+  "Staff lounge / workroom — Hospitality items are stocked": "Office Manager",
+  "Staff lounge / workroom — Office supplies are stocked": "Office Manager",
+  "Staff lounge / workroom — Paper and ink / toner storage systems are functional": "Office Manager",
+  "Staff lounge / workroom — Furniture is functional": "Facilities",
+  "Staff lounge / workroom — Values signage: \"At DC Prep We Keep Spaces\"": "OSL",
+  "Staff lounge / workroom — HR compliance posters neatly hung": "OSL",
+  "Staff lounge / workroom — Staff birthday board is up to date": "OSL",
+  "Staff lounge / workroom — Bulletin boards have neat backing paper / border": "OSL",
+  // STAFF RESTROOM
+  "Staff restroom — Restroom is clean": "Custodial",
+  "Staff restroom — Hospitality items are stocked": "Office Manager",
+  "Staff restroom — Values signage: \"At DC Prep We Keep Spaces\"": "OSL",
+  "Staff restroom — Feminine hygiene products poster is hung": "OSL",
+  // STUDENT RESTROOMS
+  "Student restrooms — Restroom is clean": "Custodial",
+  "Student restrooms — Toilet paper dispensers stocked": "Custodial",
+  "Student restrooms — Hand soap dispensers stocked": "Custodial",
+  "Student restrooms — Hand dryers functional": "Facilities",
+  "Student restrooms — Values signage: \"At DC Prep We Keep Spaces\"": "OSL",
+  "Student restrooms — Feminine hygiene products poster neatly hung": "OSL",
+  "Student restrooms — Stall numbers in place": "OSL",
+  "Student restrooms — Prep Note holder in place": "OSL",
+  // PREPETERIA
+  "Prepeteria — Food menus up to date": "Food Service Coordinator",
+  "Prepeteria — Food compliance posters neatly hung": "Food Service Coordinator",
+  "Prepeteria — Student photo canvases neatly hung": "Food Service Coordinator",
+  "Prepeteria — Healthy eating posters neatly hung": "Food Service Coordinator",
+  "Prepeteria — Values signage: \"At DC Prep We Keep Spaces\"": "Food Service Coordinator",
+  "Prepeteria — Student seating chart neatly hung": "Food Service Coordinator",
+  "Prepeteria — Student chants, First Five, college pennants neatly hung": "Food Service Coordinator",
+  "Prepeteria — Student cafeteria tables and chairs neatly organized": "Food Service Coordinator",
+  "Prepeteria — Technology storage with needed items": "Food Service Coordinator",
+  "Prepeteria — PD supply cabinet stocked": "Food Service Coordinator",
+  // CENTRAL LIBRARY
+  "Central library — Space is clean, organized, and fully functional": "Custodial",
+  "Central library — Matching, functional tables and chairs for students": "Facilities",
+  "Central library — Bookshelves stocked with books sorted by level / genre": "OSL",
+  "Central library — Books organized in book bins": "OSL",
+  "Central library — Area rug present where applicable": "Facilities",
+  "Central library — Library rules posted": "OSL",
+  "Central library — Reading-encouragement vinyls displayed": "OSL",
+  "Central library — Comfortable seating available": "Facilities",
+};
+
+function getOwner(spaceLabel, itemName) {
+  // Try prefixed key first (new format)
+  const prefixed = spaceLabel + ' — ' + itemName;
+  if (ITEM_OWNERS[prefixed]) return ITEM_OWNERS[prefixed];
+  // Try matching just on item name across all keys
+  const match = Object.entries(ITEM_OWNERS).find(([k]) => k.endsWith('— ' + itemName));
+  return match ? match[1] : 'OSL';
+}
+
+const OWNER_COLORS = {
+  'OSL':                    { bg:'#e1f5ee', color:'#085041', border:'#99f6e4' },
+  'Office Manager':         { bg:'#eff6ff', color:'#1e40af', border:'#bfdbfe' },
+  'Custodial':              { bg:'#f8fafc', color:'#475569', border:'#e2e8f0' },
+  'Facilities':             { bg:'#fffbeb', color:'#92400e', border:'#fde68a' },
+  'Food Service Coordinator':{ bg:'#f5f3ff', color:'#6d28d9', border:'#ddd6fe' },
+  'Principal':              { bg:'#fef2f2', color:'#991b1b', border:'#fecaca' },
+};
+
 </script>
 </body>
 </html>
